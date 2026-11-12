@@ -192,15 +192,21 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Setup
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'clinic-roulette-app';
-        let firebaseConfig = {};
-        try { if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config); } 
-        catch (e) { console.error(e); }
+       const firebaseConfig = {
+              apiKey: "AIzaSyARvsbsKVhLgkagCAqwye2Ij75OFr5fx2k",
+              authDomain: "clinic-tasks-2289d.firebaseapp.com",
+              databaseURL: "https://clinic-tasks-2289d-default-rtdb.firebaseio.com",
+              projectId: "clinic-tasks-2289d",
+              storageBucket: "clinic-tasks-2289d.firebasestorage.app",
+              messagingSenderId: "955504421580",
+              appId: "1:955504421580:web:608a1268db5a0de0a9b069",
+              measurementId: "G-MXWTN5ZE5G"
+            };
 
+        const appId = 'clinic-roulette-app';
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -227,13 +233,10 @@
 
         async function init() {
             try {
-                const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                if (initialToken) await signInWithCustomToken(auth, initialToken);
-                else await signInAnonymously(auth);
-
+                await signInAnonymously(auth);
                 if (!auth.currentUser) throw new Error("Auth failed");
 
-                const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+                const stateRef = doc(db, 'clinicData', 'rouletteState');
                 
                 onSnapshot(stateRef, (docSnap) => {
                     if (docSnap.exists()) {
@@ -241,7 +244,6 @@
                         updateUI();
                         populateAdminPanel(); // sync admin panel if open
                     } else {
-                        // Create default state if doesn't exist
                         setDefaultState();
                     }
                 }, (error) => {
@@ -256,7 +258,6 @@
         }
 
         async function setDefaultState() {
-            // Default target time: 10 minutes from now
             const target = new Date();
             target.setMinutes(target.getMinutes() + 10);
 
@@ -270,11 +271,9 @@
                 available: ['t1', 't2', 't3'],
                 assignments: {}
             };
-            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+            const stateRef = doc(db, 'clinicData', 'rouletteState');
             await setDoc(stateRef, defaultState);
         }
-
-        // --- Core Logic ---
 
         function isTimeLocked() {
             if (!globalState || !globalState.targetTime) return false;
@@ -294,7 +293,6 @@
                     const s = Math.floor((diff % (1000 * 60)) / 1000);
                     elements.countdown.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
                 } else {
-                    // Time is up! Refresh UI to show the Roll button
                     clearInterval(countdownInterval);
                     updateUI();
                 }
@@ -305,11 +303,10 @@
             if (!globalState) return;
             elements.loading.classList.add('hide');
 
-            // If Admin panel is open, we don't force switch to user section
             if (!elements.adminSec.classList.contains('hide')) return;
             
             elements.userSec.classList.remove('hide');
-            if (isRolling) return; // Wait for animation to finish
+            if (isRolling) return;
 
             elements.selection.classList.add('hide');
             elements.lock.classList.add('hide');
@@ -318,18 +315,16 @@
             elements.anim.classList.add('hide');
 
             if (currentUser && globalState.assignments && globalState.assignments[currentUser]) {
-                // User already has an assignment
                 const assignData = globalState.assignments[currentUser];
                 const taskId = typeof assignData === 'string' ? assignData : assignData.taskId;
                 showResult(currentUser, taskId);
             } else {
-                // User needs to roll
                 elements.selection.classList.remove('hide');
                 
                 if (currentUser) {
                     if (isTimeLocked()) {
                         elements.lock.classList.remove('hide');
-                        startCountdownTimer(); // ensure it's ticking
+                        startCountdownTimer();
                     } else {
                         elements.rollBtn.classList.remove('hide');
                     }
@@ -360,14 +355,14 @@
             setTimeout(async () => {
                 clearInterval(rollInterval);
                 try {
-                    const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+                    const stateRef = doc(db, 'clinicData', 'rouletteState');
                     const snap = await getDoc(stateRef);
                     
                     if (snap.exists()) {
                         const latestState = snap.data();
                         
                         if (latestState.assignments[currentUser]) {
-                            // Double click/sync protection
+                            // Already rolled
                         } else {
                             let available = latestState.available || [];
                             if (available.length > 0) {
@@ -428,21 +423,23 @@
 
         window.toggleAdminPanel = () => {
             if (elements.adminSec.classList.contains('hide')) {
-                // Show Admin
+                let password = prompt("الرجاء إدخال كلمة المرور (1234):");
+                if (password !== "1234") {
+                    alert("كلمة المرور غير صحيحة!");
+                    return;
+                }
                 elements.userSec.classList.add('hide');
                 elements.adminSec.classList.remove('hide');
                 populateAdminPanel();
             } else {
-                // Hide Admin
                 elements.adminSec.classList.add('hide');
-                updateUI(); // Returns to user view properly
+                updateUI();
             }
         };
 
         function populateAdminPanel() {
             if (!globalState) return;
             
-            // Format timestamp to datetime-local format (YYYY-MM-DDThh:mm)
             if (globalState.targetTime) {
                 const date = new Date(globalState.targetTime);
                 const offset = date.getTimezoneOffset() * 60000;
@@ -465,7 +462,6 @@
                 }
             }
 
-            // Populate Results Table
             const resultsBody = document.getElementById('admin-results-body');
             resultsBody.innerHTML = '';
             if (globalState.assignments && Object.keys(globalState.assignments).length > 0) {
@@ -516,22 +512,24 @@
                     }
                 },
                 available: ['t1', 't2', 't3'],
-                assignments: {} // Resets all user assignments for the new round
+                assignments: {} 
             };
 
             try {
-                const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+                const stateRef = doc(db, 'clinicData', 'rouletteState');
                 await setDoc(stateRef, newState);
                 
                 alert("تم الحفظ بنجاح! وبدأت جولة جديدة.");
-                toggleAdminPanel(); // Close admin panel
+                
+                elements.adminSec.classList.add('hide');
+                updateUI();
             } catch (error) {
                 console.error("Save Error:", error);
                 alert("حصلت مشكلة أثناء الحفظ.");
             }
         };
 
-        // Start
+        // Start App
         init();
     </script>
 </body>
