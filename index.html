@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>توزيع تاسكات العيادات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
+                    animation: {
+                        'shake': 'shake 0.5s infinite',
+                        'pop-in': 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                    },
+                    keyframes: {
+                        shake: {
+                            '0%, 100%': { transform: 'rotate(0deg)' },
+                            '25%': { transform: 'rotate(-15deg)' },
+                            '75%': { transform: 'rotate(15deg)' }
+                        },
+                        popIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.5)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            min-height: 100vh;
+        }
+        .hide { display: none !important; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4 text-gray-800 relative">
+
+    <!-- Admin Toggle Button -->
+    <button onclick="toggleAdminPanel()" class="absolute top-4 left-4 bg-gray-800 text-white p-3 rounded-full shadow-lg hover:bg-gray-700 transition z-50">
+        <i class="fa-solid fa-gear text-xl"></i>
+    </button>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="main-container" class="bg-white rounded-3xl shadow-xl w-full max-w-md p-8 relative overflow-hidden border-t-8 border-blue-500 transition-all duration-300">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-block bg-blue-100 p-4 rounded-full mb-4">
+                <i class="fa-solid fa-stethoscope text-4xl text-blue-600"></i>
+            </div>
+            <h1 class="text-3xl font-black text-gray-800 mb-2">توزيع العيادات</h1>
+            <p class="text-gray-500 font-semibold">يا ترى مين هيشيل الليلة؟ 🎲</p>
+        </div>
+
+        <!-- Loading Area -->
+        <div id="loading-area" class="text-center py-8">
+            <i class="fa-solid fa-spinner fa-spin text-4xl text-blue-500 mb-4"></i>
+            <p class="font-bold text-gray-500 text-xl">جاري الاتصال بالسيستم...</p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-msg" class="bg-red-100 text-red-600 p-3 rounded-lg text-center font-bold mb-4 hide">
+            حصلت مشكلة في الاتصال، جرب تعمل تحديث للصفحة!
+        </div>
+
+        <!-- USER SECTION -->
+        <div id="user-section" class="hide">
+            <!-- Step 1: Selection Area -->
+            <div id="selection-area" class="space-y-6">
+                <div>
+                    <label for="employee-name" class="block text-lg font-bold mb-2 text-gray-700">اختار اسمك:</label>
+                    <div class="relative">
+                        <select id="employee-name" onchange="onUserChange()" class="block w-full bg-gray-50 border border-gray-300 text-gray-900 text-lg rounded-xl focus:ring-blue-500 focus:border-blue-500 p-3 font-bold appearance-none cursor-pointer">
+                            <option value="" disabled selected>أنا...</option>
+                            <option value="عيسى">عيسى</option>
+                            <option value="ميار">ميار</option>
+                            <option value="أمنية">أمنية</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-gray-700">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lock Area (Countdown) -->
+                <div id="lock-area" class="hide bg-gray-100 p-4 rounded-xl text-center border-2 border-dashed border-gray-300 mt-4">
+                    <i class="fa-solid fa-lock text-3xl text-gray-500 mb-2"></i>
+                    <p class="font-bold text-gray-700">التاسكات هتفتح بعد:</p>
+                    <p id="countdown-text" class="text-4xl font-black text-blue-600 mt-2 font-mono tracking-wider" dir="ltr">00:00:00</p>
+                </div>
+
+                <!-- Roll Button -->
+                <button id="roll-button" onclick="startRoll()" class="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold text-xl py-4 px-6 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95 flex items-center justify-center gap-3 hide">
+                    <i class="fa-solid fa-dice"></i>
+                    اختار التاسك (ربنا يسترها)
+                </button>
+            </div>
+
+            <!-- Step 2: Animation Area -->
+            <div id="animation-area" class="hide text-center py-8">
+                <i id="rolling-dice" class="fa-solid fa-dice-d20 text-6xl text-blue-500 animate-shake mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-700 mb-2">جاري اختيار التاسك...</h2>
+                <p id="changing-text" class="text-xl font-bold text-gray-400">العيادات القديمة</p>
+            </div>
+
+            <!-- Step 3: Result Area -->
+            <div id="result-area" class="hide text-center">
+                <div id="result-icon" class="text-6xl mb-4"></div>
+                <h2 class="text-2xl font-bold text-gray-700 mb-2">يا <span id="result-name" class="text-blue-600 underline"></span>.. تاسكك هو:</h2>
+                <div id="result-task-box" class="bg-gray-100 rounded-xl p-4 mb-4 border-2 border-dashed border-gray-300">
+                    <h3 id="result-task" class="text-3xl font-black mb-2"></h3>
+                </div>
+                <p id="result-message" class="text-2xl font-bold mb-8"></p>
+
+                <button onclick="resetUserSelection()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold text-lg py-3 px-6 rounded-xl shadow transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-users"></i>
+                    رجوع لاختيار اسم تاني
+                </button>
+            </div>
+        </div>
+
+        <!-- ADMIN SECTION -->
+        <div id="admin-section" class="hide">
+            <h2 class="text-2xl font-black text-gray-800 mb-4 border-b-2 border-gray-200 pb-2">
+                <i class="fa-solid fa-user-tie text-blue-600 ml-2"></i>لوحة تحكم المدير
+            </h2>
+            
+            <!-- RESULTS SECTION -->
+            <div class="mb-6 border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                <div class="bg-gray-100 p-3 border-b border-gray-200 font-bold text-gray-700 flex justify-between items-center">
+                    <span><i class="fa-solid fa-list-check ml-2"></i>نتائج السحب الحالية</span>
+                </div>
+                <table class="w-full text-right text-sm">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="p-2">الاسم</th>
+                            <th class="p-2">التاسك</th>
+                            <th class="p-2">الوقت</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-results-body">
+                        <tr><td colspan="3" class="p-2 text-center text-gray-500">لا توجد نتائج حتى الآن</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="font-bold text-gray-700 mb-2">إعدادات الجولة القادمة:</h3>
+            <div class="space-y-4">
+                <!-- Target Time -->
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <label class="block font-bold text-gray-700 mb-1">وقت فتح النرد (تاريخ وساعة):</label>
+                    <input type="datetime-local" id="admin-target-time" class="w-full p-2 border border-gray-300 rounded-lg font-mono">
+                </div>
+
+                <!-- Task 1 -->
+                <div class="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                    <label class="block font-bold text-blue-800 mb-1">تاسك 1:</label>
+                    <input type="text" id="t1-name" value="العيادات القديمة" class="w-full p-2 mb-2 border border-blue-300 rounded-lg">
+                    <input type="text" id="t1-msg" value="قدها يا بطل 🦸‍♂️" class="w-full p-2 border border-blue-300 rounded-lg text-sm text-gray-600" placeholder="الرسالة">
+                </div>
+
+                <!-- Task 2 -->
+                <div class="bg-orange-50 p-3 rounded-xl border border-orange-200">
+                    <label class="block font-bold text-orange-800 mb-1">تاسك 2:</label>
+                    <input type="text" id="t2-name" value="العيادات المتوسطة" class="w-full p-2 mb-2 border border-orange-300 rounded-lg">
+                    <input type="text" id="t2-msg" value="شربتها يا كروديا 🤡" class="w-full p-2 border border-orange-300 rounded-lg text-sm text-gray-600" placeholder="الرسالة">
+                </div>
+
+                <!-- Task 3 -->
+                <div class="bg-green-50 p-3 rounded-xl border border-green-200">
+                    <label class="block font-bold text-green-800 mb-1">تاسك 3:</label>
+                    <input type="text" id="t3-name" value="العيادات الجديدة" class="w-full p-2 mb-2 border border-green-300 rounded-lg">
+                    <input type="text" id="t3-msg" value="يا فوزي يابن المحظوظة 🍀" class="w-full p-2 border border-green-300 rounded-lg text-sm text-gray-600" placeholder="الرسالة">
+                </div>
+
+                <button onclick="saveAdminSettings()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-3 px-4 rounded-xl shadow transition mt-4">
+                    <i class="fa-solid fa-save ml-2"></i>حفظ وبدء جولة جديدة
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'clinic-roulette-app';
+        let firebaseConfig = {};
+        try { if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config); } 
+        catch (e) { console.error(e); }
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // State & DOM Variables
+        let globalState = null;
+        let currentUser = null;
+        let isRolling = false;
+        let countdownInterval = null;
+        
+        const diceIcons = ['fa-dice-one', 'fa-dice-two', 'fa-dice-three', 'fa-dice-four', 'fa-dice-five', 'fa-dice-six'];
+
+        const elements = {
+            loading: document.getElementById('loading-area'),
+            userSec: document.getElementById('user-section'),
+            adminSec: document.getElementById('admin-section'),
+            selection: document.getElementById('selection-area'),
+            lock: document.getElementById('lock-area'),
+            rollBtn: document.getElementById('roll-button'),
+            anim: document.getElementById('animation-area'),
+            result: document.getElementById('result-area'),
+            countdown: document.getElementById('countdown-text')
+        };
+
+        async function init() {
+            try {
+                const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (initialToken) await signInWithCustomToken(auth, initialToken);
+                else await signInAnonymously(auth);
+
+                if (!auth.currentUser) throw new Error("Auth failed");
+
+                const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+                
+                onSnapshot(stateRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        globalState = docSnap.data();
+                        updateUI();
+                        populateAdminPanel(); // sync admin panel if open
+                    } else {
+                        // Create default state if doesn't exist
+                        setDefaultState();
+                    }
+                }, (error) => {
+                    console.error("Firebase read error", error);
+                    document.getElementById('error-msg').classList.remove('hide');
+                });
+            } catch (error) {
+                console.error("Init Error", error);
+                document.getElementById('error-msg').classList.remove('hide');
+                elements.loading.classList.add('hide');
+            }
+        }
+
+        async function setDefaultState() {
+            // Default target time: 10 minutes from now
+            const target = new Date();
+            target.setMinutes(target.getMinutes() + 10);
+
+            const defaultState = {
+                targetTime: target.getTime(),
+                tasksMap: {
+                    't1': { name: "العيادات القديمة", message: "قدها يا بطل 🦸‍♂️", colorClass: "text-blue-600", boxClass: "bg-blue-50 border-blue-300", icon: "🦸‍♂️" },
+                    't2': { name: "العيادات المتوسطة", message: "شربتها يا كروديا 🤡", colorClass: "text-orange-500", boxClass: "bg-orange-50 border-orange-300", icon: "🤡" },
+                    't3': { name: "العيادات الجديدة", message: "يا فوزي يابن المحظوظة 🍀", colorClass: "text-green-500", boxClass: "bg-green-50 border-green-300", icon: "🍀" }
+                },
+                available: ['t1', 't2', 't3'],
+                assignments: {}
+            };
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+            await setDoc(stateRef, defaultState);
+        }
+
+        // --- Core Logic ---
+
+        function isTimeLocked() {
+            if (!globalState || !globalState.targetTime) return false;
+            return Date.now() < globalState.targetTime;
+        }
+
+        function startCountdownTimer() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            
+            countdownInterval = setInterval(() => {
+                if (isRolling || !globalState) return;
+                
+                if (isTimeLocked()) {
+                    const diff = globalState.targetTime - Date.now();
+                    const h = Math.floor(diff / (1000 * 60 * 60));
+                    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const s = Math.floor((diff % (1000 * 60)) / 1000);
+                    elements.countdown.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                } else {
+                    // Time is up! Refresh UI to show the Roll button
+                    clearInterval(countdownInterval);
+                    updateUI();
+                }
+            }, 1000);
+        }
+
+        function updateUI() {
+            if (!globalState) return;
+            elements.loading.classList.add('hide');
+
+            // If Admin panel is open, we don't force switch to user section
+            if (!elements.adminSec.classList.contains('hide')) return;
+            
+            elements.userSec.classList.remove('hide');
+            if (isRolling) return; // Wait for animation to finish
+
+            elements.selection.classList.add('hide');
+            elements.lock.classList.add('hide');
+            elements.rollBtn.classList.add('hide');
+            elements.result.classList.add('hide');
+            elements.anim.classList.add('hide');
+
+            if (currentUser && globalState.assignments && globalState.assignments[currentUser]) {
+                // User already has an assignment
+                const assignData = globalState.assignments[currentUser];
+                const taskId = typeof assignData === 'string' ? assignData : assignData.taskId;
+                showResult(currentUser, taskId);
+            } else {
+                // User needs to roll
+                elements.selection.classList.remove('hide');
+                
+                if (currentUser) {
+                    if (isTimeLocked()) {
+                        elements.lock.classList.remove('hide');
+                        startCountdownTimer(); // ensure it's ticking
+                    } else {
+                        elements.rollBtn.classList.remove('hide');
+                    }
+                }
+            }
+        }
+
+        window.onUserChange = () => {
+            currentUser = document.getElementById('employee-name').value;
+            updateUI();
+        };
+
+        window.startRoll = async () => {
+            if (!currentUser || isTimeLocked() || (globalState.assignments && globalState.assignments[currentUser])) return;
+
+            isRolling = true;
+            elements.selection.classList.add('hide');
+            elements.anim.classList.remove('hide');
+
+            const taskKeys = Object.keys(globalState.tasksMap);
+            let rollInterval = setInterval(() => {
+                const randomKey = taskKeys[Math.floor(Math.random() * taskKeys.length)];
+                document.getElementById('changing-text').innerText = globalState.tasksMap[randomKey].name;
+                const randomDice = diceIcons[Math.floor(Math.random() * diceIcons.length)];
+                document.getElementById('rolling-dice').className = `fa-solid ${randomDice} text-7xl text-blue-500 animate-shake mb-4`;
+            }, 150);
+
+            setTimeout(async () => {
+                clearInterval(rollInterval);
+                try {
+                    const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+                    const snap = await getDoc(stateRef);
+                    
+                    if (snap.exists()) {
+                        const latestState = snap.data();
+                        
+                        if (latestState.assignments[currentUser]) {
+                            // Double click/sync protection
+                        } else {
+                            let available = latestState.available || [];
+                            if (available.length > 0) {
+                                const randomIndex = Math.floor(Math.random() * available.length);
+                                const assignedTaskId = available[randomIndex];
+                                
+                                available.splice(randomIndex, 1);
+                                latestState.assignments[currentUser] = {
+                                    taskId: assignedTaskId,
+                                    timestamp: Date.now()
+                                };
+                                latestState.available = available;
+                                
+                                await setDoc(stateRef, latestState); 
+                            } else {
+                                alert("عفواً، جميع التاسكات تم توزيعها!");
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Roll Error:", e);
+                }
+                
+                isRolling = false;
+                updateUI();
+            }, 2500);
+        };
+
+        function showResult(empName, taskId) {
+            const finalTask = globalState.tasksMap[taskId];
+            if(!finalTask) return;
+
+            document.getElementById('result-name').innerText = empName;
+            
+            const rTask = document.getElementById('result-task');
+            rTask.innerText = finalTask.name;
+            rTask.className = `text-4xl font-black mb-2 ${finalTask.colorClass}`;
+            
+            const rMsg = document.getElementById('result-message');
+            rMsg.innerText = finalTask.message;
+            rMsg.className = `text-2xl font-bold mb-8 ${finalTask.colorClass}`;
+            
+            document.getElementById('result-icon').innerText = finalTask.icon || "✨";
+            document.getElementById('result-task-box').className = `rounded-xl p-6 mb-4 border-2 border-dashed ${finalTask.boxClass}`;
+
+            elements.result.classList.remove('hide');
+            elements.result.classList.add('animate-pop-in');
+        }
+
+        window.resetUserSelection = () => {
+            currentUser = null;
+            document.getElementById('employee-name').value = "";
+            elements.result.classList.remove('animate-pop-in');
+            updateUI();
+        };
+
+        // --- Admin Functions ---
+
+        window.toggleAdminPanel = () => {
+            if (elements.adminSec.classList.contains('hide')) {
+                // Show Admin
+                elements.userSec.classList.add('hide');
+                elements.adminSec.classList.remove('hide');
+                populateAdminPanel();
+            } else {
+                // Hide Admin
+                elements.adminSec.classList.add('hide');
+                updateUI(); // Returns to user view properly
+            }
+        };
+
+        function populateAdminPanel() {
+            if (!globalState) return;
+            
+            // Format timestamp to datetime-local format (YYYY-MM-DDThh:mm)
+            if (globalState.targetTime) {
+                const date = new Date(globalState.targetTime);
+                const offset = date.getTimezoneOffset() * 60000;
+                const localISOTime = (new Date(date - offset)).toISOString().slice(0, 16);
+                document.getElementById('admin-target-time').value = localISOTime;
+            }
+
+            if (globalState.tasksMap) {
+                if(globalState.tasksMap['t1']) {
+                    document.getElementById('t1-name').value = globalState.tasksMap['t1'].name;
+                    document.getElementById('t1-msg').value = globalState.tasksMap['t1'].message;
+                }
+                if(globalState.tasksMap['t2']) {
+                    document.getElementById('t2-name').value = globalState.tasksMap['t2'].name;
+                    document.getElementById('t2-msg').value = globalState.tasksMap['t2'].message;
+                }
+                if(globalState.tasksMap['t3']) {
+                    document.getElementById('t3-name').value = globalState.tasksMap['t3'].name;
+                    document.getElementById('t3-msg').value = globalState.tasksMap['t3'].message;
+                }
+            }
+
+            // Populate Results Table
+            const resultsBody = document.getElementById('admin-results-body');
+            resultsBody.innerHTML = '';
+            if (globalState.assignments && Object.keys(globalState.assignments).length > 0) {
+                for (const [empName, data] of Object.entries(globalState.assignments)) {
+                    const taskId = typeof data === 'string' ? data : data.taskId;
+                    const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'غير معروف';
+                    const taskName = globalState.tasksMap[taskId] ? globalState.tasksMap[taskId].name : 'مهمة محذوفة';
+                    
+                    resultsBody.innerHTML += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-2 font-bold">${empName}</td>
+                            <td class="p-2 text-blue-600">${taskName}</td>
+                            <td class="p-2 text-sm text-gray-500" dir="ltr">${timestamp}</td>
+                        </tr>
+                    `;
+                }
+            } else {
+                resultsBody.innerHTML = '<tr><td colspan="3" class="p-2 text-center text-gray-500">لا توجد نتائج حتى الآن</td></tr>';
+            }
+        }
+
+        window.saveAdminSettings = async () => {
+            const timeInput = document.getElementById('admin-target-time').value;
+            if (!timeInput) {
+                alert("برجاء تحديد وقت فتح النرد أولاً!");
+                return;
+            }
+
+            const newTargetTime = new Date(timeInput).getTime();
+
+            const newState = {
+                targetTime: newTargetTime,
+                tasksMap: {
+                    't1': { 
+                        name: document.getElementById('t1-name').value || "العيادات القديمة", 
+                        message: document.getElementById('t1-msg').value, 
+                        colorClass: "text-blue-600", boxClass: "bg-blue-50 border-blue-300", icon: "🦸‍♂️" 
+                    },
+                    't2': { 
+                        name: document.getElementById('t2-name').value || "العيادات المتوسطة", 
+                        message: document.getElementById('t2-msg').value, 
+                        colorClass: "text-orange-500", boxClass: "bg-orange-50 border-orange-300", icon: "🤡" 
+                    },
+                    't3': { 
+                        name: document.getElementById('t3-name').value || "العيادات الجديدة", 
+                        message: document.getElementById('t3-msg').value, 
+                        colorClass: "text-green-500", boxClass: "bg-green-50 border-green-300", icon: "🍀" 
+                    }
+                },
+                available: ['t1', 't2', 't3'],
+                assignments: {} // Resets all user assignments for the new round
+            };
+
+            try {
+                const stateRef = doc(db, 'artifacts', appId, 'public', 'data', 'roulette', 'state');
+                await setDoc(stateRef, newState);
+                
+                alert("تم الحفظ بنجاح! وبدأت جولة جديدة.");
+                toggleAdminPanel(); // Close admin panel
+            } catch (error) {
+                console.error("Save Error:", error);
+                alert("حصلت مشكلة أثناء الحفظ.");
+            }
+        };
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
